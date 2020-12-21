@@ -1,6 +1,8 @@
 import {
 	app,
-	BrowserWindow
+	BrowserWindow,
+	Tray,
+	Menu
 } from 'electron'
 
 /**
@@ -44,7 +46,27 @@ function createWindow() {
 	})
 }
 
-app.on('ready', createWindow)
+function initTrayIcon() {
+
+	const tray = new Tray('./src/renderer/assets/logo.png');
+	const trayContextMenu = Menu.buildFromTemplate([{
+
+		label: '退出',
+		click: () => {
+			app.quit()
+		}
+	}]);
+	tray.setToolTip('抽奖小程序');
+	tray.on('right-click', () => {
+		tray.popUpContextMenu(trayContextMenu);
+	});
+
+}
+
+app.on('ready', _ => {
+	createWindow();
+	initTrayIcon();
+})
 
 app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') {
