@@ -1,8 +1,9 @@
 <template>
 	<div id="wrapper">
-		<iframe src="static/flipClock.html" width="400px" frameborder="0"></iframe>
+		<!-- <iframe src="static/flipClock.html" width="400px" frameborder="0"></iframe> -->
 		<!-- <span class="moveTitle" style="float: right;font-size: 40px;">欢迎光临sb弹幕系统</span> -->
-		<p v-for="item in testData" :key="item.index" :style="{'top': item.height + 'px'}" class="moveItem">{{item.msg}}</p>
+		<p v-for="item in testData" :key="item.index" :id="item.index" :style="{'color': item.color, 'top': item.height + 'px', 'animation': item.speed +'s wordsLoop linear normal'}"
+		 class="moveItem">{{item.msg}}</p>
 	</div>
 </template>
 
@@ -11,12 +12,30 @@
 	var util = require('util');
 	var url = require('url');
 	var querystring = require("querystring");
+	var Mock = require('mockjs')
+	var fs = require('fs')
+	var Random = Mock.Random;
 	let index = 1;
 	export default {
 		name: 'landing-page',
 		data() {
 			return {
-				testData: []
+				testData: [],
+				options: {
+					speed: "normal",
+					throttle: 300
+				},
+				cons: {
+					speedOpt: {
+						"normal": 8,
+						"fast": 4,
+						"slow": 12
+					}
+				},
+				cache: [],
+				timeOut: {},
+				sumTime: 0,
+				tmpTime: 0
 			}
 		},
 		methods: {
@@ -34,16 +53,52 @@
 			// 	ele.removeEventListener("mouseleave", this.handleMouseLeave)
 			// 	ele.addEventListener("mouseenter", this.handleMouseEnter)
 			// }
+			speed() {
+				return this.cons.speedOpt[this.options.speed]
+			},
+			lazyUpdData() {
+				if (this.timeOut) {
+					clearTimeout(this.timeOut)
+				}
+
+				this.tmpTime = this.tmpTime ? this.tmpTime : new Date();
+				this.sumTime += new Date().getTime() - this.tmpTime;
+
+				if (this.cache.length > 100 || this.sumTime > this.options.throttle) {
+					this.pushDataIntoArray()
+					return
+				}
+
+				this.timeOut = setTimeout(_ => {
+					this.pushDataIntoArray()
+				}, this.options.throttle)
+			},
+			pushDataIntoArray() {
+				// 原数组到达指定长度后清空并记录
+				// if (!this.checkArrayLength()){
+				// 	this.saveDataInfoFile()
+				// }
+				// this.$set(this, 'testData', this.testData.concat(this.cache))
+				this.testData.push(...this.cache)
+				this.cache = []
+				this.sumTime = 0
+				this.tmpTime = 0
+			},
+			checkArrayLength() {
+				return this.testData.length < 100
+			},
+			saveDataInfoFile() {
+				fs.appendFile('./test.txt', JSON.stringify(this.testData))
+				// todo 删除屏幕上已消失的data
+				// for (let ele of document.getElementsByClassName("moveItem")) {
+				// 	if (ele.style.opacity == 0) {
+				// 		this.testData.
+				// 	}
+				// }
+			}
 		},
 		mounted() {
 			this.$nextTick(_ => {
-				// 	setInterval(_ => {
-				// 		this.testData.push({
-				// 			msg: '测试弹幕' + new Date().getTime(),
-				// 			height: new Date().getTime() * new Date().getTime() % 1000
-				// 		})
-				// 	}, 1000)
-				// })
 				var self = this
 
 				var server = http.createServer(function(request, response) {
@@ -69,23 +124,26 @@
 
 					//请求参数中有中文是推介，会自动处理中文问题,推介使用
 					var url_Obj_Json = url.parse(request.url, true);
-					// console.log(url_Obj_Json);
-
-					var url_Obj_Json_str = JSON.stringify(url_Obj_Json.query);
-					console.log(url_Obj_Json_str);
 					response.end("success")
-					if (url_Obj_Json.pathname == '/'){
-						self.testData.push({
-							// msg: url_Obj_Json_str + new Date().getTime(),
+					if (url_Obj_Json.pathname == '/') {
+						self.cache.push({
 							msg: url_Obj_Json.query.text,
 							index: index ++,
-							height: new Date().getTime() * new Date().getTime() % 500
+							height: Random.natural(0, 500),
+							speed: self.speed(),
+							color: url_Obj_Json.query.color
 						})
+						self.lazyUpdData()
+					} else if (url_Obj_Json.pathname.startsWith('/control')) {
+						let {
+							optName,
+							optValue
+						} = url_Obj_Json.query
+						self.$set(self.options, optName, optValue)
 					}
-					
+
 				})
 				server.listen(8100)
-				console.info("success")
 			})
 		}
 	}
@@ -104,27 +162,17 @@
 		}
 	}
 
-	/* #moveItem {
-		display: inline-block;
-		position: relative;
-	}
-
-	#moveItem:not(:hover) {
-		animation: 5s wordsLoop linear normal;
-	} */
-
 	.moveItem {
 		opacity: 0;
 		width: 1920px;
-		/* position: relative; */
 		position: absolute;
 		font-size: 50px;
-		animation: 5s wordsLoop linear normal;
+		animation: 8s wordsLoop linear normal;
 		font-family: '微软雅黑';
-		/* color: 'white' */
+		color: black;
 	}
-	
-	.moveTitle{
+
+	.moveTitle {
 		opacity: 0;
 		width: 520px;
 		animation: 5s wordsLoop infinite linear normal;

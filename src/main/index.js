@@ -28,7 +28,7 @@ function createWindow() {
 		resizable: false,
 		alwaysOnTop: true,
 		center: true,
-		skipTaskbar: true,
+		// skipTaskbar: true,
 		autoHideMenuBar: true,
 		focusable: false
 	})
