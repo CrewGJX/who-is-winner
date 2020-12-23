@@ -23,7 +23,8 @@
 				testData: [],
 				options: {
 					speed: "normal",
-					throttle: 300
+					throttle: 300,
+					limitNum: 10
 				},
 				cons: {
 					speedOpt: {
@@ -74,27 +75,26 @@
 				}, this.options.throttle)
 			},
 			pushDataIntoArray() {
-				// 原数组到达指定长度后清空并记录
-				// if (!this.checkArrayLength()){
-				// 	this.saveDataInfoFile()
-				// }
-				// this.$set(this, 'testData', this.testData.concat(this.cache))
-				this.testData.push(...this.cache)
-				this.cache = []
+				// 限制同屏弹幕数量
+				let sum = document.getElementsByClassName("moveItem").length
+				fs.appendFile('./test.txt', sum + '\n')
+				if (sum >= this.options.limitNum) {
+					setTimeout(_ => {
+						this.pushDataIntoArray()
+					}, 500)
+					return
+				}
+				
+				let tmp = this.cache.splice(0, this.options.limitNum)
+				this.testData.push(...tmp)
+				fs.appendFile('./test.txt', JSON.stringify(this.testData))
+				setTimeout(_ => {
+					this.testData.splice(0, tmp.length)
+				}, this.speed() * 1000)
+				
+				// this.cache = []
 				this.sumTime = 0
 				this.tmpTime = 0
-			},
-			checkArrayLength() {
-				return this.testData.length < 100
-			},
-			saveDataInfoFile() {
-				fs.appendFile('./test.txt', JSON.stringify(this.testData))
-				// todo 删除屏幕上已消失的data
-				// for (let ele of document.getElementsByClassName("moveItem")) {
-				// 	if (ele.style.opacity == 0) {
-				// 		this.testData.
-				// 	}
-				// }
 			}
 		},
 		mounted() {
@@ -152,7 +152,7 @@
 <style>
 	@keyframes wordsLoop {
 		0% {
-			transform: translateX(100%);
+			transform: translateX(1920px);
 			opacity: 1;
 		}
 
@@ -164,7 +164,7 @@
 
 	.moveItem {
 		opacity: 0;
-		width: 1920px;
+		/* width: 1920px; */
 		position: absolute;
 		font-size: 50px;
 		animation: 8s wordsLoop linear normal;

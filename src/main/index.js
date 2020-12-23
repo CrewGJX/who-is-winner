@@ -25,19 +25,19 @@ function createWindow() {
 	mainWindow = new BrowserWindow({
 		width: 1920,
 		height: 1080,
-		transparent: true,
-		frame: false,
+		// transparent: true,
+		// frame: false,
 		resizable: false,
-		alwaysOnTop: true,
+		// alwaysOnTop: true,
 		center: true,
 		// skipTaskbar: true,
 		autoHideMenuBar: true,
-		focusable: false
+		// focusable: false
 	})
-	mainWindow.setAlwaysOnTop(true, 'pop-up-menu'); //一定要这样设置 要不然在mac下全屏播放PPT的时候看不到
+	// mainWindow.setAlwaysOnTop(true, 'pop-up-menu'); //一定要这样设置 要不然在mac下全屏播放PPT的时候看不到
 
 	mainWindow.maximize(); //窗口最大化
-	mainWindow.setIgnoreMouseEvents(true); //点击穿透
+	// mainWindow.setIgnoreMouseEvents(true); //点击穿透
 
 	mainWindow.loadURL(winURL)
 
@@ -48,7 +48,7 @@ function createWindow() {
 
 function initTrayIcon() {
 
-	const tray = new Tray('./src/renderer/assets/logo.png');
+	const tray = new Tray('./static/meinv.jpg');
 	const trayContextMenu = Menu.buildFromTemplate([{
 
 		label: '退出',
