@@ -2,8 +2,15 @@
 	<div id="wrapper">
 		<!-- <iframe src="static/flipClock.html" width="400px" frameborder="0"></iframe> -->
 		<!-- <span class="moveTitle" style="float: right;font-size: 40px;">欢迎光临sb弹幕系统</span> -->
-		<p v-for="item in testData" :key="item.index" :id="item.index" :style="{'color': item.color, 'top': item.height + 'px', 'animation': item.speed +'s wordsLoop linear normal'}"
-		 class="moveItem">{{item.msg}}</p>
+		<p v-for="item in holdData" :key="item.index" :id="item.index" :style="{'color': item.color, 'font-size': item.fontSize}"
+		 class="holdItem">
+			{{item.msg}}
+		</p>
+
+		<p v-for="item in testData" :key="item.index" :id="item.index" :style="{'color': item.color, 'top': item.height + 'px', 'font-size': item.fontSize, 'animation': item.speed +'s wordsLoop linear normal'}"
+		 class="moveItem">
+			{{item.msg}}
+		</p>
 	</div>
 </template>
 
@@ -21,10 +28,12 @@
 		data() {
 			return {
 				testData: [],
+				holdData: [],
 				options: {
 					speed: "normal",
 					throttle: 300,
-					limitNum: 10
+					limitNum: 500,
+					holdTime: 5
 				},
 				cons: {
 					speedOpt: {
@@ -77,21 +86,36 @@
 			pushDataIntoArray() {
 				// 限制同屏弹幕数量
 				let sum = document.getElementsByClassName("moveItem").length
-				fs.appendFile('./test.txt', sum + '\n')
 				if (sum >= this.options.limitNum) {
 					setTimeout(_ => {
 						this.pushDataIntoArray()
 					}, 500)
 					return
 				}
-				
+
 				let tmp = this.cache.splice(0, this.options.limitNum)
-				this.testData.push(...tmp)
-				fs.appendFile('./test.txt', JSON.stringify(this.testData))
+				// fs.appendFile('./debugger.txt', JSON.stringify(tmp), (error) => { console.log("Error!"); })
+				let holdArray = tmp.filter(item => {
+					return item.isHold
+				})
+
+				let moveArray = tmp.filter(item => {
+					return !item.isHold
+				})
+				this.testData.push(...moveArray)
+				this.holdData.push(...holdArray)
+
+				// fs.appendFile('./debugger.txt', JSON.stringify(moveArray), (error) => { console.log("Error!"); })
+				// fs.appendFile('./debugger.txt', JSON.stringify(holdArray), (error) => { console.log("Error!"); })
+
 				setTimeout(_ => {
-					this.testData.splice(0, tmp.length)
+					this.testData.splice(0, moveArray.length)
 				}, this.speed() * 1000)
-				
+
+				setTimeout(_ => {
+					this.holdData.splice(0, holdArray.length)
+				}, this.options.holdTime * 1000)
+
 				// this.cache = []
 				this.sumTime = 0
 				this.tmpTime = 0
@@ -126,13 +150,22 @@
 					var url_Obj_Json = url.parse(request.url, true);
 					response.end("success")
 					if (url_Obj_Json.pathname == '/') {
-						self.cache.push({
+						let msgData = {
 							msg: url_Obj_Json.query.text,
-							index: index ++,
+							index: index++,
 							height: Random.natural(0, 500),
 							speed: self.speed(),
-							color: url_Obj_Json.query.color
+							color: url_Obj_Json.query.color || "black",
+							isHold: url_Obj_Json.query.isHold || false,
+							fontSize: (url_Obj_Json.query.fontSize || 50) + 'px'
+						}
+
+						self.cache.push(msgData)
+
+						fs.appendFile('./history.txt', JSON.stringify(msgData), (error) => {
+							if (error) throw err;
 						})
+
 						self.lazyUpdData()
 					} else if (url_Obj_Json.pathname.startsWith('/control')) {
 						let {
@@ -144,6 +177,22 @@
 
 				})
 				server.listen(8100)
+
+				// setInterval(_ => {
+				// 	let msgData = {
+				// 		msg: Random.cword(3),
+				// 		index: index++,
+				// 		height: Random.natural(0, 500),
+				// 		speed: self.speed(),
+				// 		color: 'black'
+				// 	}
+
+				// 	self.cache.push(msgData)
+
+				// 	fs.appendFile('./history.txt', JSON.stringify(msgData))
+
+				// 	self.lazyUpdData()
+				// }, 200)
 			})
 		}
 	}
@@ -152,11 +201,14 @@
 <style>
 	@keyframes wordsLoop {
 		0% {
-			transform: translateX(1920px);
+			/* transform: translateX(1920px); */
+			/* transform: translateX(100%); */
+			/* left: 100%; */
 			opacity: 1;
 		}
 
 		100% {
+			left: 0;
 			transform: translateX(-100%);
 			opacity: 1;
 		}
@@ -164,23 +216,33 @@
 
 	.moveItem {
 		opacity: 0;
-		/* width: 1920px; */
+		left: 100%;
 		position: absolute;
-		font-size: 50px;
-		animation: 8s wordsLoop linear normal;
 		font-family: '微软雅黑';
 		color: black;
 	}
 
-	.moveTitle {
+	/* 	.moveTitle {
 		opacity: 0;
 		width: 520px;
 		animation: 5s wordsLoop infinite linear normal;
 		font-family: '微软雅黑';
+	} */
+
+	.holdItem {
+		position: relative;
+		left: 50%;
+		transform: translateX(-50%);
+		text-align: center;
 	}
 
 	html {
 		background-color: transparent;
 		overflow: hidden;
+	}
+
+	* {
+		padding: 0;
+		margin: 0;
 	}
 </style>

@@ -5,6 +5,8 @@ import {
 	Menu
 } from 'electron'
 
+import axios from 'axios'
+
 /**
  * Set `__static` path to static files in production
  * https://simulatedgreg.gitbooks.io/electron-vue/content/en/using-static-assets.html
@@ -50,11 +52,38 @@ function initTrayIcon() {
 
 	const tray = new Tray('./static/meinv.jpg');
 	const trayContextMenu = Menu.buildFromTemplate([{
-
 		label: '退出',
 		click: () => {
 			app.quit()
 		}
+	}, {
+		label: '弹幕速度',
+		submenu: [
+			{
+				label: "慢",
+				checked: false,
+				type: 'radio',
+				click() {
+					axios.get("http://localhost:8100/control/?optName=speed&optValue=slow")
+				}
+			},
+			{
+				label: "中等",
+				checked: true,
+				type: 'radio',
+				click() {
+					axios.get("http://localhost:8100/control/?optName=speed&optValue=normal")
+				}
+			},
+			{
+				label: "快",
+				checked: false,
+				type: 'radio',
+				click() {
+					axios.get("http://localhost:8100/control/?optName=speed&optValue=fast")
+				}
+			}
+		]
 	}]);
 	tray.setToolTip('抽奖小程序');
 	tray.on('right-click', () => {
