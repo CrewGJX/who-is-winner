@@ -2,7 +2,8 @@ import {
 	app,
 	BrowserWindow,
 	Tray,
-	Menu
+	Menu,
+	ipcMain
 } from 'electron'
 
 import axios from 'axios'
@@ -15,10 +16,8 @@ if (process.env.NODE_ENV !== 'development') {
 	global.__static = require('path').join(__dirname, '/static').replace(/\\/g, '\\\\')
 }
 
-let mainWindow
-const winURL = process.env.NODE_ENV === 'development' ?
-	`http://localhost:9080` :
-	`file://${__dirname}/index.html`
+let mainWindow, editForm
+const winURL = `http://localhost:9080`
 
 function createWindow() {
 	/**
@@ -48,43 +47,108 @@ function createWindow() {
 	})
 }
 
+function createEditForm() {
+	/**
+	 * Initial window options
+	 */
+	editForm = new BrowserWindow({
+		width: 500,
+		height: 400,
+		// transparent: true,
+		// frame: false,
+		resizable: true,
+		// alwaysOnTop: true,
+		// center: true,
+		// skipTaskbar: true,
+		autoHideMenuBar: true,
+		// focusable: false
+	})
+	// mainWindow.setAlwaysOnTop(true, 'pop-up-menu'); //一定要这样设置 要不然在mac下全屏播放PPT的时候看不到
+
+	// editForm.maximize(); //窗口最大化
+	// mainWindow.setIgnoreMouseEvents(true); //点击穿透
+
+	editForm.loadURL('http://localhost:9080/#/fillDataPage')
+
+	editForm.on('closed', () => {
+		editForm = null
+	})
+}
+
 function initTrayIcon() {
 
-	const tray = new Tray('./static/meinv.jpg');
+	const tray = new Tray('./static/test.jpg');
 	const trayContextMenu = Menu.buildFromTemplate([{
-		label: '退出',
-		click: () => {
-			app.quit()
-		}
-	}, {
-		label: '弹幕速度',
-		submenu: [
-			{
-				label: "慢",
-				checked: false,
-				type: 'radio',
-				click() {
-					axios.get("http://localhost:8100/control/?optName=speed&optValue=slow")
-				}
-			},
-			{
-				label: "中等",
-				checked: true,
-				type: 'radio',
-				click() {
-					axios.get("http://localhost:8100/control/?optName=speed&optValue=normal")
-				}
-			},
-			{
-				label: "快",
-				checked: false,
-				type: 'radio',
-				click() {
-					axios.get("http://localhost:8100/control/?optName=speed&optValue=fast")
-				}
+			label: '退出',
+			click: () => {
+				app.quit()
 			}
-		]
-	}]);
+		}, {
+			label: '弹幕速度',
+			submenu: [{
+					label: "慢",
+					checked: false,
+					type: 'radio',
+					click() {
+						axios.get("http://localhost:8100/control/?optName=speed&optValue=slow")
+					}
+				},
+				{
+					label: "中等",
+					checked: true,
+					type: 'radio',
+					click() {
+						axios.get("http://localhost:8100/control/?optName=speed&optValue=normal")
+					}
+				},
+				{
+					label: "快",
+					checked: false,
+					type: 'radio',
+					click() {
+						axios.get("http://localhost:8100/control/?optName=speed&optValue=fast")
+					}
+				}
+			]
+		},
+		{
+			label: '暂停',
+			type: "checkbox",
+			checked: false,
+			click() {
+				axios.get(
+					`http://localhost:8100/control/?optName=notRenderData&optValue=!self.options.notRenderData&optType=json`)
+			}
+		},
+		{
+			label: '行距',
+			submenu: [{
+					label: "单倍行距",
+					checked: false,
+					type: 'radio',
+					click() {
+						axios.get("http://localhost:8100/control/?optName=rowSpacing&optValue=1")
+					}
+				},
+				{
+					label: "1.5倍行距",
+					checked: false,
+					type: 'radio',
+					click() {
+						axios.get("http://localhost:8100/control/?optName=rowSpacing&optValue=1.5")
+					}
+				},
+				{
+					label: "2倍行距",
+					checked: false,
+					type: 'radio',
+					click() {
+						axios.get("http://localhost:8100/control/?optName=rowSpacing&optValue=2")
+					}
+				}
+			]
+		}
+	]);
 	tray.setToolTip('抽奖小程序');
 	tray.on('right-click', () => {
 		tray.popUpContextMenu(trayContextMenu);
@@ -107,6 +171,10 @@ app.on('activate', () => {
 	if (mainWindow === null) {
 		createWindow()
 	}
+})
+
+ipcMain.on("commCrtl", (event, args) => {
+	createEditForm()
 })
 
 /**

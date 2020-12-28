@@ -1,6 +1,9 @@
 <template>
 	<div id="wrapper">
-		<!-- <iframe src="static/flipClock.html" width="400px" frameborder="0"></iframe> -->
+		<iframe src="static/flipClock.html" width="400px" frameborder="0"></iframe>
+		<a style="float: right" @click="whoIsWinner">抽奖</a>
+		<a style="float: right" @click="openEditForm">管理</a>
+		<a style="float: right" @click="viewWinners">查看中奖详情</a>
 		<!-- <span class="moveTitle" style="float: right;font-size: 40px;">欢迎光临sb弹幕系统</span> -->
 		<p v-for="item in holdData" :key="item.index" :id="item.index" :style="{'color': item.color, 'font-size': item.fontSize}"
 		 class="holdItem">
@@ -11,10 +14,25 @@
 		 class="moveItem">
 			{{item.msg}}
 		</p>
+
+		<div class="winner-group" v-show="winnerGroupVisible">
+			<p style="font-size: 60px;display: inline-block;">中奖名单</p>
+			<p style="display: inline-block;" @click='closeWinners'>关闭close</p>
+			<div class="winner-group-table"></div>
+		</div>
 	</div>
 </template>
 
 <script>
+	const {
+		ipcRenderer
+	} = require('electron')
+
+	import $ from 'jquery'
+	ipcRenderer.on("commCrtl", (event, args) => {
+
+	})
+
 	var http = require('http');
 	var util = require('util');
 	var url = require('url');
@@ -33,7 +51,9 @@
 					speed: "normal",
 					throttle: 300,
 					limitNum: 500,
-					holdTime: 5
+					holdTime: 5,
+					notRenderData: false,
+					rowSpacing: 1.5
 				},
 				cons: {
 					speedOpt: {
@@ -45,10 +65,28 @@
 				cache: [],
 				timeOut: {},
 				sumTime: 0,
-				tmpTime: 0
+				tmpTime: 0,
+				winnerGroupVisible: false
 			}
 		},
 		methods: {
+			openEditForm() {
+				ipcRenderer.send("commCrtl", "openEditForm")
+			},
+			whoIsWinner() {
+				this.winnerGroupVisible = true
+				let candidate = document.getElementsByClassName("moveItem")
+				let winner = candidate.item(Random.natural(1, candidate.length))
+				let holdWinner = $(winner).clone()
+				$(winner).remove()
+				$(holdWinner).removeClass('moveItem').css('animation', '').css('top', '').addClass('winner-item').appendTo('.winner-group-table')
+			},
+			viewWinners() {
+				this.winnerGroupVisible = true
+			},
+			closeWinners() {
+				this.winnerGroupVisible = false
+			},
 			// handleMouseEnter(event) {
 			// 	let ele = document.getElementById("moveItem")
 			// 	// ele.style.position = 'relative'
@@ -116,9 +154,11 @@
 					this.holdData.splice(0, holdArray.length)
 				}, this.options.holdTime * 1000)
 
-				// this.cache = []
 				this.sumTime = 0
 				this.tmpTime = 0
+			},
+			rowNums(lineHeight) {
+				return parseInt(window.innerHeight / lineHeight / this.options.rowSpacing) - 1
 			}
 		},
 		mounted() {
@@ -150,55 +190,90 @@
 					var url_Obj_Json = url.parse(request.url, true);
 					response.end("success")
 					if (url_Obj_Json.pathname == '/') {
+						let fontSize = url_Obj_Json.query.fontSize || 50
 						let msgData = {
 							msg: url_Obj_Json.query.text,
 							index: index++,
-							height: Random.natural(0, 500),
+							height: fontSize + Random.natural(0, self.rowNums(fontSize)) * fontSize * self.options.rowSpacing,
 							speed: self.speed(),
 							color: url_Obj_Json.query.color || "black",
 							isHold: url_Obj_Json.query.isHold || false,
-							fontSize: (url_Obj_Json.query.fontSize || 50) + 'px'
+							fontSize: fontSize + 'px'
 						}
-
-						self.cache.push(msgData)
 
 						fs.appendFile('./history.txt', JSON.stringify(msgData), (error) => {
 							if (error) throw err;
 						})
 
+						if (self.options.notRenderData)
+							return
+
+						self.cache.push(msgData)
+
 						self.lazyUpdData()
 					} else if (url_Obj_Json.pathname.startsWith('/control')) {
 						let {
 							optName,
-							optValue
+							optValue,
+							optType
 						} = url_Obj_Json.query
+
+						if (optType) {
+							optValue = eval(optValue)
+						}
 						self.$set(self.options, optName, optValue)
 					}
 
 				})
 				server.listen(8100)
 
-				// setInterval(_ => {
-				// 	let msgData = {
-				// 		msg: Random.cword(3),
-				// 		index: index++,
-				// 		height: Random.natural(0, 500),
-				// 		speed: self.speed(),
-				// 		color: 'black'
-				// 	}
+				setInterval(_ => {
+					let msgData = {
+						msg: Random.cword(3),
+						index: index++,
+						height: 50 + Random.natural(0, self.rowNums(50)) * 50 * self.options.rowSpacing,
+						speed: self.speed(),
+						color: 'black',
+						fontSize: 50 + 'px'
+					}
 
-				// 	self.cache.push(msgData)
+					self.cache.push(msgData)
 
-				// 	fs.appendFile('./history.txt', JSON.stringify(msgData))
+					fs.appendFile('./history.txt', JSON.stringify(msgData), (error) => {
+						if (error) throw err;
+					})
 
-				// 	self.lazyUpdData()
-				// }, 200)
+					self.lazyUpdData()
+				}, 200)
 			})
 		}
 	}
 </script>
 
 <style>
+	.winner-group-table{
+		
+	}
+	
+	.winner-item {
+		font-size: 20px !important;
+		position: relative;
+	}
+
+	.winner-group {
+		z-index: 9999;
+		position: absolute;
+		left: 50%;
+		top: 20%;
+		transform: translateX(-50%);
+		box-shadow: 5px 5px 20px grey;
+		border: 1px solid black;
+		width: 60%;
+		min-height: 20%;
+		background-color: white;
+		/* text-align: center; */
+	}
+
 	@keyframes wordsLoop {
 		0% {
 			/* transform: translateX(1920px); */
@@ -220,6 +295,7 @@
 		position: absolute;
 		font-family: '微软雅黑';
 		color: black;
+		word-break: keep-all;
 	}
 
 	/* 	.moveTitle {
@@ -234,6 +310,7 @@
 		left: 50%;
 		transform: translateX(-50%);
 		text-align: center;
+		width: 75%;
 	}
 
 	html {
