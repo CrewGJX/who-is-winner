@@ -7,6 +7,7 @@ import {
 } from 'electron'
 
 import axios from 'axios'
+import '../renderer/store'
 var fs = require('fs')
 
 /**
@@ -224,7 +225,7 @@ ipcMain.on("commCrtl", (event, args) => {
 		case "disableDanmu": {
 			disableDanmu()
 			break
-		},
+		}
 		case "disableDetail":{
 			danmuScreen.webContents.send("eventInstance", "disableDetail")
 		}

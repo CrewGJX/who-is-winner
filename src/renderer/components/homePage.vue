@@ -1,37 +1,20 @@
 <template>
 	<div id="wrapper">
-		<iframe src="static/flipClock.html" width="400px" frameborder="0"></iframe>
-		<!-- <tr>
-				<td width="33%">
-					<button @click="whoIsWinner">抽奖</button>
-				</td>
-				<td width="33%">
-					<button @click="openEditForm">管理奖品</button>
-				</td>
-				<td width="33%">
-					<button @click="viewWinners">查看中奖详情</button>
-				</td>
-			</tr>
-			<tr>
-				<td width="33%">
-					<button @click="showDanmu">展示弹幕页</button>
-				</td>
-			</tr> -->
-
+		<iframe src="static/flipClock.html" width="400px" height="60px" frameborder="0"></iframe>
 		<el-row>
 			<el-col :span="6" :offset="2">
-				<el-button @click="whoIsWinner" type="primary">抽奖</el-button>
+				<el-button @click="showDanmu" type="primary">{{isShowDanmu? '关闭弹幕页': '展示弹幕页'}}</el-button>
 			</el-col>
 			<el-col :span="6" :offset="2">
 				<el-button @click="openEditForm" type="primary">管理奖品</el-button>
 			</el-col>
-			<el-col :span="6" :offset="2">
-				<el-button @click="viewWinners" type="primary">{{isShowDetail ? '关闭中奖详情':'查看中奖详情'}}</el-button>
-			</el-col>
 		</el-row>
-		<el-row>
+		<el-row v-show="isShowDanmu">
 			<el-col :span="6" :offset="2">
-				<el-button @click="showDanmu" type="primary">{{isShowDanmu?'关闭弹幕页':'展示弹幕页'}}</el-button>
+				<el-button @click="whoIsWinner" type="primary">弹幕抽奖</el-button>
+			</el-col>
+			<el-col :span="6" :offset="2">
+				<el-button @click="viewWinners" type="primary">{{isShowDetail? '关闭中奖详情': '查看中奖详情'}}</el-button>
 			</el-col>
 		</el-row>
 	</div>

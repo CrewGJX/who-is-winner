@@ -5,18 +5,18 @@
 		 class="holdItem">
 			{{item.msg}}
 		</div>
-
+		
+		<div class="danmuWrapper">
 		<div v-for="item in testData" :key="item.index" :id="item.index" :style="{'color': item.color, 'top': item.height + 'px', 'font-size': item.fontSize, 'animation': item.speed +'s wordsLoop linear normal'}"
 		 class="moveItem">
 			{{item.msg}}
 		</div>
+		</div>
 
 		<el-dialog :visible.sync="winnerGroupVisible" :title="'中奖名单'" :width="'60%'">
-			<el-row>
-				<el-col :span="5" :offset="1" v-for="item in winnerListData">
-					<p>{{item.text}}</p>
-				</el-col>
-			</el-row>
+			<template  v-for="item in giftArray">
+				
+			</template>
 		</el-dialog>
 	</div>
 </template>
@@ -31,7 +31,7 @@
 	var Mock = require('mockjs')
 	var fs = require('fs')
 	var Random = Mock.Random;
-	let index = 1;
+	let index = 1, row = 0, sumTime = 0, tmpTime = new Date();
 
 	const {
 		ipcRenderer
@@ -45,30 +45,40 @@
 				holdData: [],
 				options: {
 					speed: "normal",
-					throttle: 300,
-					limitNum: 500,
+					throttle: 1000,
+					limitNum: 10000,
 					holdTime: 5,
 					notRenderData: false,
-					rowSpacing: 1.5
+					rowSpacing: 1.5,
+					noLimit: false
 				},
 				cons: {
 					speedOpt: {
-						"normal": 8,
-						"fast": 4,
-						"slow": 12
+						"normal": 10,
+						"fast": 5,
+						"slow": 20
 					}
 				},
 				cache: [],
 				timeOut: {},
-				sumTime: 0,
-				tmpTime: 0,
 				winnerGroupVisible: false,
 				winnerListData: []
 			}
 		},
+		computed:{
+			giftArray() {
+				return this.$store.state.giftStore.giftArray
+			}
+		},
 		methods: {
-			speed() {
-				return this.cons.speedOpt[this.options.speed]
+			getNextRow(rowNum){
+				let rr = (row >= rowNum ? row = 0 : row ++ )
+				console.info(rr)
+				return rr
+			},
+			speed(speedConfig) {
+				// 调整弹幕速度
+				return this.cons.speedOpt[speedConfig || this.options.speed]
 			},
 			drawWhoIsWinner() {
 				this.winnerGroupVisible = true
@@ -82,11 +92,12 @@
 				this.winnerListData.push({
 					text: $(winnerItem).text()
 				})
+				this.persistData($(winnerItem).text())
 			},
 			showWhoIsWinner() {
 				this.winnerGroupVisible = true
 			},
-			disableDetail(){
+			disableDetail() {
 				this.winnerGroupVisible = false
 			},
 			lazyUpdData() {
@@ -94,11 +105,13 @@
 					clearTimeout(this.timeOut)
 				}
 
-				this.tmpTime = this.tmpTime ? this.tmpTime : new Date();
-				this.sumTime += new Date().getTime() - this.tmpTime;
-
-				if (this.cache.length > 100 || this.sumTime > this.options.throttle) {
+				sumTime = new Date().getTime() - tmpTime;
+				
+				if (this.cache.length > 10 || sumTime > this.options.throttle) {
+					if (sumTime > this.options.throttle)
+						row = 0
 					this.pushDataIntoArray()
+					tmpTime = new Date()
 					return
 				}
 
@@ -112,12 +125,11 @@
 				if (sum >= this.options.limitNum) {
 					setTimeout(_ => {
 						this.pushDataIntoArray()
-					}, 500)
+					}, this.options.noLimit ? 10 : 1000)
 					return
 				}
-
-				let tmp = this.cache.splice(0, this.options.limitNum)
-				// fs.appendFile('./debugger.txt', JSON.stringify(tmp), (error) => { console.log("Error!"); })
+				
+				let tmp = this.cache.splice(0, this.cache.length)
 				let holdArray = tmp.filter(item => {
 					return item.isHold
 				})
@@ -128,27 +140,43 @@
 				this.testData.push(...moveArray)
 				this.holdData.push(...holdArray)
 
-				// fs.appendFile('./debugger.txt', JSON.stringify(moveArray), (error) => { console.log("Error!"); })
-				// fs.appendFile('./debugger.txt', JSON.stringify(holdArray), (error) => { console.log("Error!"); })
-
 				setTimeout(_ => {
 					this.testData.splice(0, moveArray.length)
-				}, this.speed() * 1000)
+				}, this.cons.speedOpt.slow * 1000)
 
 				setTimeout(_ => {
 					this.holdData.splice(0, holdArray.length)
 				}, this.options.holdTime * 1000)
 
 				this.sumTime = 0
-				this.tmpTime = 0
+				// this.tmpTime = 0
 			},
 			rowNums(lineHeight) {
-				return parseInt(window.innerHeight / lineHeight / this.options.rowSpacing) - 2
+				return parseInt(window.innerHeight / lineHeight / this.options.rowSpacing)
+			},
+			recordDanmuData(data){
+				// 持久化数据
+				fs.appendFile('./history.txt', JSON.stringify(data), (error) => {
+					if (error) throw err;
+				})
+			},
+			persistData(data){
+				fs.appendFile('./winnerHistory.txt', JSON.stringify(data), (error) => {
+					if (error) throw err;
+				})
 			}
 		},
 		mounted() {
 			this.$nextTick(_ => {
 				var self = this
+				
+				fs.appendFile('./history.txt', new Date() + "===================\n" , (error) => {
+					if (error) throw err;
+				})
+				
+				fs.appendFile('./winnerHistory.txt', new Date() + "===================\n", (error) => {
+					if (error) throw err;
+				})
 
 				var server = http.createServer(function(request, response) {
 					// request.setEncoding('utf-8');
@@ -179,16 +207,14 @@
 						let msgData = {
 							msg: url_Obj_Json.query.text,
 							index: index++,
-							height: fontSize + Random.natural(0, self.rowNums(fontSize)) * fontSize * self.options.rowSpacing,
-							speed: self.speed(),
+							height: (self.options.noLimit ? Random.natural(0,980) : self.getNextRow(self.rowNums(fontSize)) * fontSize * self.options.rowSpacing),
+							speed: self.speed(url_Obj_Json.query.speed || 'normal'),
 							color: url_Obj_Json.query.color || "black",
 							isHold: url_Obj_Json.query.isHold || false,
 							fontSize: fontSize + 'px'
 						}
 
-						fs.appendFile('./history.txt', JSON.stringify(msgData), (error) => {
-							if (error) throw err;
-						})
+						self.recordDanmuData(msgData)
 
 						if (self.options.notRenderData)
 							return
@@ -216,20 +242,16 @@
 					let msgData = {
 						msg: Random.cword(3),
 						index: index++,
-						height: 50 + Random.natural(0, self.rowNums(50)) * 50 * self.options.rowSpacing,
+						height: (self.options.noLimit ? Random.natural(0,980) : self.getNextRow(self.rowNums(50)) * 50 * self.options.rowSpacing),
 						speed: self.speed(),
 						color: 'black',
 						fontSize: 50 + 'px'
 					}
 
 					self.cache.push(msgData)
-
-					fs.appendFile('./history.txt', JSON.stringify(msgData), (error) => {
-						if (error) throw err;
-					})
-
+					self.recordDanmuData(msgData)
 					self.lazyUpdData()
-				}, 1000)
+				}, 50)
 
 				ipcRenderer.on("eventInstance", (event, args) => {
 					switch (args) {
@@ -243,11 +265,11 @@
 								self.drawWhoIsWinner()
 								break
 							}
-							case "disableDetail":
-								{
-									self.disableDetail()
-									break
-								}
+						case "disableDetail":
+							{
+								self.disableDetail()
+								break
+							}
 					}
 				})
 			})
@@ -256,49 +278,28 @@
 </script>
 
 <style>
-	.winner-group-table {}
-
-	.winner-item {
-		font-size: 20px !important;
-		position: relative;
-	}
-
-	.winner-group {
-		z-index: 9999;
-		position: absolute;
-		left: 50%;
-		top: 20%;
-		transform: translateX(-50%);
-		box-shadow: 5px 5px 20px grey;
-		border: 1px solid black;
-		width: 60%;
-		min-height: 20%;
-		background-color: white;
-		/* text-align: center; */
-	}
-
 	@keyframes wordsLoop {
-		0% {
-			/* transform: translateX(1920px); */
-			/* transform: translateX(100%); */
-			/* left: 100%; */
+		from {
+			transform: translate3d(calc(1920px + 110%), 0, 0);
 			opacity: 1;
 		}
 
-		100% {
-			left: 0;
-			transform: translateX(-100%);
+		to {
+			transform: translate3d(-120%, 0, 0);
 			opacity: 1;
 		}
 	}
+
+	/* .danmuWrapper{
+		transition: ;
+	} */
 
 	.moveItem {
-		opacity: 0;
-		left: 100%;
 		position: absolute;
 		font-family: '微软雅黑';
 		color: black;
 		white-space: nowrap;
+		opacity: 0;
 	}
 
 	/* 	.moveTitle {
