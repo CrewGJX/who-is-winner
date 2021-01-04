@@ -1,37 +1,28 @@
 <template>
 	<div id="wrapper">
-		<iframe src="static/flipClock.html" width="400px" frameborder="0"></iframe>
-		<a style="float: right" @click="whoIsWinner">抽奖</a>
-		<a style="float: right" @click="openEditForm">管理</a>
-		<a style="float: right" @click="viewWinners">查看中奖详情</a>
 		<!-- <span class="moveTitle" style="float: right;font-size: 40px;">欢迎光临sb弹幕系统</span> -->
-		<p v-for="item in holdData" :key="item.index" :id="item.index" :style="{'color': item.color, 'font-size': item.fontSize}"
+		<div v-for="item in holdData" :key="item.index" :id="item.index" :style="{'color': item.color, 'font-size': item.fontSize}"
 		 class="holdItem">
 			{{item.msg}}
-		</p>
+		</div>
 
-		<p v-for="item in testData" :key="item.index" :id="item.index" :style="{'color': item.color, 'top': item.height + 'px', 'font-size': item.fontSize, 'animation': item.speed +'s wordsLoop linear normal'}"
+		<div v-for="item in testData" :key="item.index" :id="item.index" :style="{'color': item.color, 'top': item.height + 'px', 'font-size': item.fontSize, 'animation': item.speed +'s wordsLoop linear normal'}"
 		 class="moveItem">
 			{{item.msg}}
-		</p>
-
-		<div class="winner-group" v-show="winnerGroupVisible">
-			<p style="font-size: 60px;display: inline-block;">中奖名单</p>
-			<p style="display: inline-block;" @click='closeWinners'>关闭close</p>
-			<div class="winner-group-table"></div>
 		</div>
+
+		<el-dialog :visible.sync="winnerGroupVisible" :title="'中奖名单'" :width="'60%'">
+			<el-row>
+				<el-col :span="5" :offset="1" v-for="item in winnerListData">
+					<p>{{item.text}}</p>
+				</el-col>
+			</el-row>
+		</el-dialog>
 	</div>
 </template>
 
 <script>
-	const {
-		ipcRenderer
-	} = require('electron')
-
 	import $ from 'jquery'
-	ipcRenderer.on("commCrtl", (event, args) => {
-
-	})
 
 	var http = require('http');
 	var util = require('util');
@@ -41,6 +32,11 @@
 	var fs = require('fs')
 	var Random = Mock.Random;
 	let index = 1;
+
+	const {
+		ipcRenderer
+	} = require('electron')
+
 	export default {
 		name: 'landing-page',
 		data() {
@@ -66,43 +62,32 @@
 				timeOut: {},
 				sumTime: 0,
 				tmpTime: 0,
-				winnerGroupVisible: false
+				winnerGroupVisible: false,
+				winnerListData: []
 			}
 		},
 		methods: {
-			openEditForm() {
-				ipcRenderer.send("commCrtl", "openEditForm")
-			},
-			whoIsWinner() {
-				this.winnerGroupVisible = true
-				let candidate = document.getElementsByClassName("moveItem")
-				let winner = candidate.item(Random.natural(1, candidate.length))
-				let holdWinner = $(winner).clone()
-				$(winner).remove()
-				$(holdWinner).removeClass('moveItem').css('animation', '').css('top', '').addClass('winner-item').appendTo('.winner-group-table')
-			},
-			viewWinners() {
-				this.winnerGroupVisible = true
-			},
-			closeWinners() {
-				this.winnerGroupVisible = false
-			},
-			// handleMouseEnter(event) {
-			// 	let ele = document.getElementById("moveItem")
-			// 	// ele.style.position = 'relative'
-			// 	ele.style.left = event.clientX + 'px'
-			// 	ele.removeEventListener("mouseenter", this.handleMouseEnter)
-			// 	ele.addEventListener("mouseleave", this.handleMouseLeave)
-			// },
-			// handleMouseLeave(event) {
-			// 	let ele = document.getElementById("moveItem")
-			// 	// ele.style.position = ''
-			// 	ele.style.left = ''
-			// 	ele.removeEventListener("mouseleave", this.handleMouseLeave)
-			// 	ele.addEventListener("mouseenter", this.handleMouseEnter)
-			// }
 			speed() {
 				return this.cons.speedOpt[this.options.speed]
+			},
+			drawWhoIsWinner() {
+				this.winnerGroupVisible = true
+				let candidate = document.getElementsByClassName("moveItem")
+				let winner = candidate.item(Random.natural(0, candidate.length))
+				let holdWinner = $(winner).clone()
+				$(winner).remove()
+				this.addWinnerItemIntoVisiTable(holdWinner)
+			},
+			addWinnerItemIntoVisiTable(winnerItem) {
+				this.winnerListData.push({
+					text: $(winnerItem).text()
+				})
+			},
+			showWhoIsWinner() {
+				this.winnerGroupVisible = true
+			},
+			disableDetail(){
+				this.winnerGroupVisible = false
 			},
 			lazyUpdData() {
 				if (this.timeOut) {
@@ -158,7 +143,7 @@
 				this.tmpTime = 0
 			},
 			rowNums(lineHeight) {
-				return parseInt(window.innerHeight / lineHeight / this.options.rowSpacing) - 1
+				return parseInt(window.innerHeight / lineHeight / this.options.rowSpacing) - 2
 			}
 		},
 		mounted() {
@@ -190,7 +175,7 @@
 					var url_Obj_Json = url.parse(request.url, true);
 					response.end("success")
 					if (url_Obj_Json.pathname == '/') {
-						let fontSize = url_Obj_Json.query.fontSize || 50
+						let fontSize = Number(url_Obj_Json.query.fontSize) || 50
 						let msgData = {
 							msg: url_Obj_Json.query.text,
 							index: index++,
@@ -244,17 +229,35 @@
 					})
 
 					self.lazyUpdData()
-				}, 200)
+				}, 1000)
+
+				ipcRenderer.on("eventInstance", (event, args) => {
+					switch (args) {
+						case "showWhoIsWinner":
+							{
+								self.showWhoIsWinner()
+								break
+							}
+						case "drawWhoIsWinner":
+							{
+								self.drawWhoIsWinner()
+								break
+							}
+							case "disableDetail":
+								{
+									self.disableDetail()
+									break
+								}
+					}
+				})
 			})
 		}
 	}
 </script>
 
 <style>
-	.winner-group-table{
-		
-	}
-	
+	.winner-group-table {}
+
 	.winner-item {
 		font-size: 20px !important;
 		position: relative;
@@ -295,7 +298,7 @@
 		position: absolute;
 		font-family: '微软雅黑';
 		color: black;
-		word-break: keep-all;
+		white-space: nowrap;
 	}
 
 	/* 	.moveTitle {
@@ -311,6 +314,7 @@
 		transform: translateX(-50%);
 		text-align: center;
 		width: 75%;
+		white-space: nowrap;
 	}
 
 	html {

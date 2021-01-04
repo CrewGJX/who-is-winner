@@ -7,6 +7,7 @@ import {
 } from 'electron'
 
 import axios from 'axios'
+var fs = require('fs')
 
 /**
  * Set `__static` path to static files in production
@@ -16,7 +17,7 @@ if (process.env.NODE_ENV !== 'development') {
 	global.__static = require('path').join(__dirname, '/static').replace(/\\/g, '\\\\')
 }
 
-let mainWindow, editForm
+let mainWindow, editForm, danmuScreen
 const winURL = `http://localhost:9080`
 
 function createWindow() {
@@ -24,20 +25,20 @@ function createWindow() {
 	 * Initial window options
 	 */
 	mainWindow = new BrowserWindow({
-		width: 1920,
-		height: 1080,
+		width: 960,
+		height: 540,
 		// transparent: true,
 		// frame: false,
-		resizable: false,
+		resizable: true,
 		// alwaysOnTop: true,
-		center: true,
+		center: false,
 		// skipTaskbar: true,
-		autoHideMenuBar: true,
+		autoHideMenuBar: false,
 		// focusable: false
 	})
 	// mainWindow.setAlwaysOnTop(true, 'pop-up-menu'); //一定要这样设置 要不然在mac下全屏播放PPT的时候看不到
 
-	mainWindow.maximize(); //窗口最大化
+	// mainWindow.maximize(); //窗口最大化
 	// mainWindow.setIgnoreMouseEvents(true); //点击穿透
 
 	mainWindow.loadURL(winURL)
@@ -73,6 +74,35 @@ function createEditForm() {
 	editForm.on('closed', () => {
 		editForm = null
 	})
+}
+
+function showDanmu (){
+	danmuScreen = new BrowserWindow({
+		width: 1920,
+		height: 1080,
+		// transparent: true,
+		// frame: false,
+		// resizable: false,
+		// alwaysOnTop: true,
+		// center: true,
+		// skipTaskbar: true,
+		// autoHideMenuBar: true,
+		// focusable: false
+	})
+	// danmuScreen.setAlwaysOnTop(true, 'pop-up-menu'); //一定要这样设置 要不然在mac下全屏播放PPT的时候看不到
+	
+	danmuScreen.maximize(); //窗口最大化
+	// danmuScreen.setIgnoreMouseEvents(true); //点击穿透
+	
+	danmuScreen.loadURL('http://localhost:9080/#/screen')
+	
+	danmuScreen.on('closed', () => {
+		danmuScreen = null
+	})
+}
+
+function disableDanmu(){
+	danmuScreen.close()
 }
 
 function initTrayIcon() {
@@ -174,7 +204,31 @@ app.on('activate', () => {
 })
 
 ipcMain.on("commCrtl", (event, args) => {
-	createEditForm()
+	switch (args){
+		case "openEditForm":{
+			createEditForm()
+			break
+		}
+		case "showDanmu": {
+			showDanmu()
+			break
+		}
+		case "showWhoIsWinner": {
+			danmuScreen.webContents.send("eventInstance", "showWhoIsWinner")
+			break
+		}
+		case "drawWhoIsWinner": {
+			danmuScreen.webContents.send("eventInstance", "drawWhoIsWinner")
+			break
+		}
+		case "disableDanmu": {
+			disableDanmu()
+			break
+		},
+		case "disableDetail":{
+			danmuScreen.webContents.send("eventInstance", "disableDetail")
+		}
+	}
 })
 
 /**
