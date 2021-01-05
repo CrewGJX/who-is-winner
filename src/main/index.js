@@ -54,7 +54,7 @@ function createEditForm() {
 	 * Initial window options
 	 */
 	editForm = new BrowserWindow({
-		width: 500,
+		width: 1024,
 		height: 400,
 		// transparent: true,
 		// frame: false,

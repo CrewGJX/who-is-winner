@@ -2,7 +2,7 @@
 	<div id="wrapper">
 		<el-form size="mini" label-width="80px">
 			<template v-if="giftArray.length > 0">
-				<el-form-item v-for="item in giftArray" :label="item.level + '等奖' + item.name">
+				<el-form-item v-for="item in giftArray" :label="item.level + '等奖'">
 					{{item}}
 				</el-form-item>
 			</template>
@@ -28,7 +28,7 @@
 					<el-input v-model="imgContent"></el-input>
 				</el-form-item>
 			</el-col>
-			<el-col :span="6">
+			<el-col :span="6" :offset="1">
 				<el-form-item :label="'添加奖品'">
 					<el-button @click="addGift">添加</el-button>
 					<el-button @click="clearGift">清空</el-button>

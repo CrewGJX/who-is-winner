@@ -14,8 +14,9 @@
 		</div>
 
 		<el-dialog :visible.sync="winnerGroupVisible" :title="'中奖名单'" :width="'60%'">
-			<template  v-for="item in giftArray">
-				
+			<template v-for="item in giftArray">
+				<p>{{item.level + '等奖' + item.name}}</p>
+				<p v-for="o in winnerListData">{{o}}</p>
 			</template>
 		</el-dialog>
 	</div>
@@ -73,7 +74,6 @@
 		methods: {
 			getNextRow(rowNum){
 				let rr = (row >= rowNum ? row = 0 : row ++ )
-				console.info(rr)
 				return rr
 			},
 			speed(speedConfig) {
@@ -105,13 +105,13 @@
 					clearTimeout(this.timeOut)
 				}
 
-				sumTime = new Date().getTime() - tmpTime;
+				sumTime += new Date().getTime() - tmpTime;
+				tmpTime = new Date()
 				
-				if (this.cache.length > 10 || sumTime > this.options.throttle) {
-					if (sumTime > this.options.throttle)
+				if (this.cache.length > 9 || sumTime > this.options.throttle) {
+					if (sumTime > this.options.throttle * 2)
 						row = 0
 					this.pushDataIntoArray()
-					tmpTime = new Date()
 					return
 				}
 
@@ -148,7 +148,7 @@
 					this.holdData.splice(0, holdArray.length)
 				}, this.options.holdTime * 1000)
 
-				this.sumTime = 0
+				sumTime = 0
 				// this.tmpTime = 0
 			},
 			rowNums(lineHeight) {
@@ -240,18 +240,18 @@
 
 				setInterval(_ => {
 					let msgData = {
-						msg: Random.cword(3),
+						msg: Random.cword(10),
 						index: index++,
 						height: (self.options.noLimit ? Random.natural(0,980) : self.getNextRow(self.rowNums(50)) * 50 * self.options.rowSpacing),
 						speed: self.speed(),
 						color: 'black',
-						fontSize: 50 + 'px'
+						fontSize: 30 + 'px'
 					}
 
 					self.cache.push(msgData)
 					self.recordDanmuData(msgData)
 					self.lazyUpdData()
-				}, 50)
+				}, 200)
 
 				ipcRenderer.on("eventInstance", (event, args) => {
 					switch (args) {
@@ -280,7 +280,7 @@
 <style>
 	@keyframes wordsLoop {
 		from {
-			transform: translate3d(calc(1920px + 110%), 0, 0);
+			transform: translate3d(1536px, 0, 0);
 			opacity: 1;
 		}
 

@@ -9,19 +9,14 @@ const state = {
 
 const mutations = {
 	addGift(state, gift) {
-		let newIndex = 0
-
 		if (state.giftArray.length == 0){
 			state.giftArray.push(gift)
 			return
 		}
-		state.giftArray.forEach((item, index) => {
-			if (item.level >= gift.level) {
-				item.level++
-				newIndex = index - 1
-			}
+		let newIndex = state.giftArray.findIndex((item, index) => {
+			return (Number(item.level) >= Number(gift.level))
 		})
-		state.giftArray.splice(newIndex, 0, gift)
+		state.giftArray.splice(newIndex == -1 ? state.giftArray.length : newIndex, 0, gift)
 		state.giftLeft[gift.name] = gift.num
 	},
 	deleteGift(state, gift) {
