@@ -5,18 +5,18 @@
 		 class="holdItem">
 			{{item.msg}}
 		</div>
-		
+
 		<div class="danmuWrapper">
-		<div v-for="item in testData" :key="item.index" :id="item.index" :style="{'color': item.color, 'top': item.height + 'px', 'font-size': item.fontSize, 'animation': item.speed +'s wordsLoop linear normal'}"
-		 class="moveItem">
-			{{item.msg}}
-		</div>
+			<div v-for="item in testData" :key="item.index" :id="item.index" :style="{'color': item.color, 'top': item.height + 'px', 'font-size': item.fontSize, 'animation': item.speed +'s wordsLoop linear normal'}"
+			 class="moveItem">
+				{{item.msg}}
+			</div>
 		</div>
 
 		<el-dialog :visible.sync="winnerGroupVisible" :title="'中奖名单'" :width="'60%'">
 			<template v-for="item in giftArray">
 				<p>{{item.level + '等奖' + item.name}}</p>
-				<p v-for="o in winnerListData">{{o}}</p>
+				<p v-for="o in winnerListData[item.id]">{{o}}</p>
 			</template>
 		</el-dialog>
 	</div>
@@ -32,7 +32,10 @@
 	var Mock = require('mockjs')
 	var fs = require('fs')
 	var Random = Mock.Random;
-	let index = 1, row = 0, sumTime = 0, tmpTime = new Date();
+	let index = 1,
+		row = 0,
+		sumTime = 0,
+		tmpTime = new Date();
 
 	const {
 		ipcRenderer
@@ -45,12 +48,19 @@
 				testData: [],
 				holdData: [],
 				options: {
+					// 弹幕速度
 					speed: "normal",
+					// 弹幕密度大小
 					throttle: 1000,
+					// 同屏弹幕数限制
 					limitNum: 10000,
+					// 悬浮时间
 					holdTime: 5,
+					// 是否停止获取弹幕推送数据
 					notRenderData: false,
+					// 行距
 					rowSpacing: 1.5,
+					// 无限火力模式，打开后同屏弹幕无限制，输出速度快，且高度随机
 					noLimit: false
 				},
 				cons: {
@@ -63,36 +73,50 @@
 				cache: [],
 				timeOut: {},
 				winnerGroupVisible: false,
-				winnerListData: []
+				winnerListData: {}
 			}
 		},
-		computed:{
+		computed: {
 			giftArray() {
 				return this.$store.state.giftStore.giftArray
 			}
 		},
 		methods: {
-			getNextRow(rowNum){
-				let rr = (row >= rowNum ? row = 0 : row ++ )
+			getNextRow(rowNum) {
+				let rr = (row >= rowNum ? row = 0 : row++)
 				return rr
 			},
 			speed(speedConfig) {
 				// 调整弹幕速度
 				return this.cons.speedOpt[speedConfig || this.options.speed]
 			},
-			drawWhoIsWinner() {
+			filterByAccount(collection){
+				return collection.filter(item => {
+					return true
+				})
+			},
+			drawWhoIsWinner(times) {
 				this.winnerGroupVisible = true
-				let candidate = document.getElementsByClassName("moveItem")
-				let winner = candidate.item(Random.natural(0, candidate.length))
+				let candidate = this.filterByAccount($(".moveItem"))
+				
+				let winner = Random.shuffle(candidate).splice(0, times)
 				let holdWinner = $(winner).clone()
 				$(winner).remove()
 				this.addWinnerItemIntoVisiTable(holdWinner)
 			},
 			addWinnerItemIntoVisiTable(winnerItem) {
-				this.winnerListData.push({
-					text: $(winnerItem).text()
+				let giftId = this.$store.state.giftStore.nextDrawId
+				
+				let detailContent = winnerItem.map((index,item) => {
+					return $(item).text()
 				})
-				this.persistData($(winnerItem).text())
+				
+				if (this.winnerListData[giftId]) {
+					this.winnerListData[giftId].splice(this.winnerListData.length - 1, 0, ...detailContent)
+				} else {
+					this.winnerListData[giftId] = detailContent
+				}
+				this.persistData(detailContent)
 			},
 			showWhoIsWinner() {
 				this.winnerGroupVisible = true
@@ -101,15 +125,20 @@
 				this.winnerGroupVisible = false
 			},
 			lazyUpdData() {
+				// 模拟窗口滑动 控制 弹幕的疏密和间距
+				// throttle 正比于 两波弹幕间的X轴间距
+				let throttle = this.options.noLimit ? 10 : this.options.throttle
+
 				if (this.timeOut) {
 					clearTimeout(this.timeOut)
 				}
 
 				sumTime += new Date().getTime() - tmpTime;
 				tmpTime = new Date()
-				
-				if (this.cache.length > 9 || sumTime > this.options.throttle) {
-					if (sumTime > this.options.throttle * 2)
+
+				// 缓冲数组 50 的触发条件
+				if (this.cache.length > 50 || sumTime > throttle) {
+					if (sumTime > throttle * 2)
 						row = 0
 					this.pushDataIntoArray()
 					return
@@ -117,18 +146,18 @@
 
 				this.timeOut = setTimeout(_ => {
 					this.pushDataIntoArray()
-				}, this.options.throttle)
+				}, throttle)
 			},
 			pushDataIntoArray() {
 				// 限制同屏弹幕数量
 				let sum = document.getElementsByClassName("moveItem").length
-				if (sum >= this.options.limitNum) {
+				if (!this.options.noLimit && sum >= this.options.limitNum) {
 					setTimeout(_ => {
 						this.pushDataIntoArray()
-					}, this.options.noLimit ? 10 : 1000)
+					}, 1000)
 					return
 				}
-				
+
 				let tmp = this.cache.splice(0, this.cache.length)
 				let holdArray = tmp.filter(item => {
 					return item.isHold
@@ -154,13 +183,13 @@
 			rowNums(lineHeight) {
 				return parseInt(window.innerHeight / lineHeight / this.options.rowSpacing)
 			},
-			recordDanmuData(data){
+			recordDanmuData(data) {
 				// 持久化数据
 				fs.appendFile('./history.txt', JSON.stringify(data), (error) => {
 					if (error) throw err;
 				})
 			},
-			persistData(data){
+			persistData(data) {
 				fs.appendFile('./winnerHistory.txt', JSON.stringify(data), (error) => {
 					if (error) throw err;
 				})
@@ -169,11 +198,11 @@
 		mounted() {
 			this.$nextTick(_ => {
 				var self = this
-				
-				fs.appendFile('./history.txt', new Date() + "===================\n" , (error) => {
+
+				fs.appendFile('./history.txt', new Date() + "===================\n", (error) => {
 					if (error) throw err;
 				})
-				
+
 				fs.appendFile('./winnerHistory.txt', new Date() + "===================\n", (error) => {
 					if (error) throw err;
 				})
@@ -207,9 +236,10 @@
 						let msgData = {
 							msg: url_Obj_Json.query.text,
 							index: index++,
-							height: (self.options.noLimit ? Random.natural(0,980) : self.getNextRow(self.rowNums(fontSize)) * fontSize * self.options.rowSpacing),
+							height: (self.options.noLimit ? Random.natural(0, 980) : self.getNextRow(self.rowNums(fontSize)) * fontSize *
+								self.options.rowSpacing),
 							speed: self.speed(url_Obj_Json.query.speed || 'normal'),
-							color: url_Obj_Json.query.color || "black",
+							color: (self.options.noLimit ? Random.rgb() : url_Obj_Json.query.color) || "black",
 							isHold: url_Obj_Json.query.isHold || false,
 							fontSize: fontSize + 'px'
 						}
@@ -242,16 +272,17 @@
 					let msgData = {
 						msg: Random.cword(10),
 						index: index++,
-						height: (self.options.noLimit ? Random.natural(0,980) : self.getNextRow(self.rowNums(50)) * 50 * self.options.rowSpacing),
+						height: (self.options.noLimit ? Random.natural(0, 980) : self.getNextRow(self.rowNums(50)) * 50 * self.options
+							.rowSpacing),
 						speed: self.speed(),
-						color: 'black',
+						color: self.options.noLimit ? Random.rgb() : 'black',
 						fontSize: 30 + 'px'
 					}
 
 					self.cache.push(msgData)
 					self.recordDanmuData(msgData)
 					self.lazyUpdData()
-				}, 200)
+				}, 500)
 
 				ipcRenderer.on("eventInstance", (event, args) => {
 					switch (args) {
@@ -262,7 +293,7 @@
 							}
 						case "drawWhoIsWinner":
 							{
-								self.drawWhoIsWinner()
+								self.drawWhoIsWinner(this.$store.state.giftStore.nextDrawNum)
 								break
 							}
 						case "disableDetail":

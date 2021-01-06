@@ -3,12 +3,13 @@ const state = {
 	giftArray: [],
 	giftLeft: {},
 	giftDrawed: {},
-	nextDrawName: "",
+	nextDrawId: "",
 	nextDrawNum: ""
 }
 
 const mutations = {
 	addGift(state, gift) {
+		state.giftLeft[gift.id] = gift.num
 		if (state.giftArray.length == 0){
 			state.giftArray.push(gift)
 			return
@@ -17,7 +18,6 @@ const mutations = {
 			return (Number(item.level) >= Number(gift.level))
 		})
 		state.giftArray.splice(newIndex == -1 ? state.giftArray.length : newIndex, 0, gift)
-		state.giftLeft[gift.name] = gift.num
 	},
 	deleteGift(state, gift) {
 		state.giftArray.splice(state.giftArray.findIndex(item => {
@@ -26,15 +26,19 @@ const mutations = {
 	},
 	clearGift(state) {
 		state.giftArray = []
+		state.giftLeft= {}
+		state.giftDrawed= {}
+		state.nextDrawId= ""
+		state.nextDrawNum= ""
 	},
 	drawGift(state, gift){
-		state.giftLeft[gift.name] --
-		state.giftDrawed[gift.name] ++
+		state.giftLeft[gift.id] --
+		state.giftDrawed[gift.id] ++
 	},
-	setNextDrawName(name){
-		state.nextDrawName = name
+	setNextDrawId(state, id){
+		state.nextDrawId = id
 	},
-	setNextDrawNum(num){
+	setNextDrawNum(state, num){
 		state.nextDrawNum = num
 	}
 }
@@ -49,11 +53,9 @@ const actions = {
 	drawGift({commit,state}, gift) {
 		commit('drawGift', gift)
 	},
-	setNextDrawName({commit,state}, name){
-		commit('setNextDrawName', name)
-	},
-	setNextDrawNum({commit,state}, num){
-		commit('setNextDrawNum', num)
+	setNextDraw({commit,state}, o){
+		commit('setNextDrawId', o.id)
+		commit('setNextDrawNum', o.num)
 	}
 }
 
