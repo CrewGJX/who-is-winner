@@ -35,6 +35,7 @@ function createWindow() {
 		center: false,
 		// skipTaskbar: true,
 		autoHideMenuBar: false,
+		webPreferences: {webSecurity: false},
 		// focusable: false
 	})
 	// mainWindow.setAlwaysOnTop(true, 'pop-up-menu'); //一定要这样设置 要不然在mac下全屏播放PPT的时候看不到
@@ -63,6 +64,7 @@ function createEditForm() {
 		// center: true,
 		// skipTaskbar: true,
 		autoHideMenuBar: true,
+		webPreferences: {webSecurity: false},
 		// focusable: false
 	})
 	// mainWindow.setAlwaysOnTop(true, 'pop-up-menu'); //一定要这样设置 要不然在mac下全屏播放PPT的时候看不到
@@ -89,6 +91,7 @@ function showDanmu (){
 		// skipTaskbar: true,
 		// autoHideMenuBar: true,
 		// focusable: false
+		webPreferences: {webSecurity: false},
 	})
 	// danmuScreen.setAlwaysOnTop(true, 'pop-up-menu'); //一定要这样设置 要不然在mac下全屏播放PPT的时候看不到
 	

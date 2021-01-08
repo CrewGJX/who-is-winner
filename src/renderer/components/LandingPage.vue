@@ -2,22 +2,30 @@
 	<div id="wrapper">
 		<!-- <span class="moveTitle" style="float: right;font-size: 40px;">欢迎光临sb弹幕系统</span> -->
 		<div v-for="item in holdData" :key="item.index" :id="item.index" :style="{'color': item.color, 'font-size': item.fontSize}"
-		 class="holdItem">
+		 class="holdItem" :data-account="item.account">
 			{{item.msg}}
 		</div>
 
 		<div class="danmuWrapper">
 			<div v-for="item in testData" :key="item.index" :id="item.index" :style="{'color': item.color, 'top': item.height + 'px', 'font-size': item.fontSize, 'animation': item.speed +'s wordsLoop linear normal'}"
-			 class="moveItem">
+			 :class="'moveItem ' + item.class" :data-account="item.account">
 				{{item.msg}}
 			</div>
 		</div>
 
-		<el-dialog :visible.sync="winnerGroupVisible" :title="'中奖名单'" :width="'60%'">
-			<template v-for="item in giftArray">
-				<p>{{item.level + '等奖' + item.name}}</p>
-				<p v-for="o in winnerListData[item.id]">{{o}}</p>
-			</template>
+		<el-dialog :visible.sync="winnerGroupVisible" :width="'100%'">
+			<p>获奖名单</p>
+			<div v-for="item in giftArray" style="margin-bottom: 20px;">
+				<p class="giftTitle">{{`${item.level}等奖: 【${item.name}】   共${item.num}个`}}</p>
+				<img :src="item.imgContent" width="100px" height="100px">
+				<el-row>
+					<el-col v-for="o in winnerListData[item.id]" :span="6">
+						<span class="giftContent">{{o.account}}:</span>
+						<span class="giftContent">{{o.text}}</span>
+					</el-col>
+				</el-row>
+				<hr />
+			</div>
 		</el-dialog>
 	</div>
 </template>
@@ -73,7 +81,8 @@
 				cache: [],
 				timeOut: {},
 				winnerGroupVisible: false,
-				winnerListData: {}
+				winnerListData: {},
+				isWinner: []
 			}
 		},
 		computed: {
@@ -90,29 +99,46 @@
 				// 调整弹幕速度
 				return this.cons.speedOpt[speedConfig || this.options.speed]
 			},
-			filterByAccount(collection){
-				return collection.filter(item => {
-					return true
+			filterByAccount(collection) {
+				let temp = {}
+				return collection.filter((index, item) => {
+					let account = $(item).attr("data-account")
+					if (temp[account]){
+						return false
+					}else{
+						temp[account] = 1
+					}
+					return this.isWinner.indexOf(account) == -1
 				})
 			},
 			drawWhoIsWinner(times) {
-				this.winnerGroupVisible = true
-				let candidate = this.filterByAccount($(".moveItem"))
-				
-				let winner = Random.shuffle(candidate).splice(0, times)
-				let holdWinner = $(winner).clone()
-				$(winner).remove()
-				this.addWinnerItemIntoVisiTable(holdWinner)
+				new Promise((resolve, reject) => {
+						this.winnerGroupVisible = true
+						let candidate = this.filterByAccount($(".moveItem"))
+
+						let winner = Random.shuffle(candidate).splice(0, times)
+						let holdWinner = $(winner).clone()
+						$(winner).remove()
+						resolve(holdWinner)
+					})
+					.then(holdWinner => {
+						this.addWinnerItemIntoVisiTable(holdWinner)
+					})
 			},
 			addWinnerItemIntoVisiTable(winnerItem) {
 				let giftId = this.$store.state.giftStore.nextDrawId
-				
-				let detailContent = winnerItem.map((index,item) => {
-					return $(item).text()
+
+				let detailContent = winnerItem.map((index, item) => {
+					return {text: $(item).text(), account: $(item).attr("data-account")}
 				})
 				
+				let accountArray = winnerItem.map((index, item) => {
+					return $(item).attr("data-account")
+				})
+
 				if (this.winnerListData[giftId]) {
-					this.winnerListData[giftId].splice(this.winnerListData.length - 1, 0, ...detailContent)
+					this.isWinner.push(...accountArray)
+					this.winnerListData[giftId].splice(this.winnerListData[giftId].length - 1, 0, ...detailContent)
 				} else {
 					this.winnerListData[giftId] = detailContent
 				}
@@ -241,7 +267,9 @@
 							speed: self.speed(url_Obj_Json.query.speed || 'normal'),
 							color: (self.options.noLimit ? Random.rgb() : url_Obj_Json.query.color) || "black",
 							isHold: url_Obj_Json.query.isHold || false,
-							fontSize: fontSize + 'px'
+							fontSize: fontSize + 'px',
+							account: url_Obj_Json.query.account || 'test',
+							class: url_Obj_Json.query.moveItemWithBubble ? 'moveItemWithBubble' : ""
 						}
 
 						self.recordDanmuData(msgData)
@@ -268,21 +296,22 @@
 				})
 				server.listen(8100)
 
-				setInterval(_ => {
-					let msgData = {
-						msg: Random.cword(10),
-						index: index++,
-						height: (self.options.noLimit ? Random.natural(0, 980) : self.getNextRow(self.rowNums(50)) * 50 * self.options
-							.rowSpacing),
-						speed: self.speed(),
-						color: self.options.noLimit ? Random.rgb() : 'black',
-						fontSize: 30 + 'px'
-					}
+				// setInterval(_ => {
+				// 	let msgData = {
+				// 		msg: Random.cword(10),
+				// 		index: index++,
+				// 		height: (self.options.noLimit ? Random.natural(0, 980) : self.getNextRow(self.rowNums(50)) * 50 * self.options
+				// 			.rowSpacing),
+				// 		speed: self.speed(),
+				// 		color: self.options.noLimit ? Random.rgb() : 'black',
+				// 		fontSize: 30 + 'px',
+				// 		account: Random.cname() || 'test'
+				// 	}
 
-					self.cache.push(msgData)
-					self.recordDanmuData(msgData)
-					self.lazyUpdData()
-				}, 500)
+				// 	self.cache.push(msgData)
+				// 	self.recordDanmuData(msgData)
+				// 	self.lazyUpdData()
+				// }, 500)
 
 				ipcRenderer.on("eventInstance", (event, args) => {
 					switch (args) {
@@ -293,7 +322,11 @@
 							}
 						case "drawWhoIsWinner":
 							{
-								self.drawWhoIsWinner(this.$store.state.giftStore.nextDrawNum)
+								new Promise((resolve, reject) => {
+									return self.drawWhoIsWinner(this.$store.state.giftStore.nextDrawNum)
+								}).then(_ => {
+
+								})
 								break
 							}
 						case "disableDetail":
@@ -321,9 +354,23 @@
 		}
 	}
 
-	/* .danmuWrapper{
-		transition: ;
-	} */
+	.giftTitle {
+		font-weight: bolder;
+		font-size: 30px;
+		/* color: white; */
+	}
+
+	.giftContent {
+		font-size: 15px;
+		margin: 3px 0px;
+		/* color: white; */
+	}
+
+	.moveItemWithBubble {
+		border: 1px solid black;
+		border-radius: 10px;
+		padding: 0px 4px;
+	}
 
 	.moveItem {
 		position: absolute;
